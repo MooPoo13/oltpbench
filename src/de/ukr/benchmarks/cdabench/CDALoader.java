@@ -1,7 +1,10 @@
 package de.ukr.benchmarks.cdabench;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,6 +27,7 @@ import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.postgresql.util.PGobject;
 import org.xmldb.api.base.Collection;
 import org.xmldb.api.base.XMLDBException;
@@ -33,6 +37,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
+import com.mongodb.client.gridfs.GridFSBucket;
+import com.mongodb.client.gridfs.GridFSBuckets;
+import com.mongodb.client.gridfs.model.GridFSUploadOptions;
+import com.mongodb.gridfs.GridFS;
+import com.mongodb.gridfs.GridFSInputFile;
 import com.oltpbenchmark.api.Loader;
 
 public class CDALoader extends Loader<CDABenchmark> {
@@ -76,7 +85,7 @@ public class CDALoader extends Loader<CDABenchmark> {
 		}
 
 	}
-	
+
 	/**
 	 * Custom implementation of the original LoaderThread class to support
 	 * connections to a MongoDB collection via MongoCollection&lt;Document&gt;.
@@ -163,9 +172,9 @@ public class CDALoader extends Loader<CDABenchmark> {
 	public List<LoaderThread> createLoaderThreads() throws SQLException {
 		LOG.info("Creating loader threads...");
 		LOG.info("DataDir: " + this.workConf.getDataDir());
-		
+
 		List<LoaderThread> threads = new ArrayList<LoaderThread>();
-		
+
 		if (LOG.isDebugEnabled())
 			LOG.debug("Creating loader threads...");
 
@@ -238,7 +247,7 @@ public class CDALoader extends Loader<CDABenchmark> {
 			} catch (Exception e) {
 				LOG.debug(e.getMessage());
 				LOG.info(e.getMessage());
-				e.printStackTrace(); 
+				e.printStackTrace();
 			}
 		} else if (this.workConf.getDBDriver().equals(CDAConfig.POSTGRESQL_DRIVER)) {
 			LoaderThread t = new LoaderThread() {
@@ -255,7 +264,8 @@ public class CDALoader extends Loader<CDABenchmark> {
 		} else {
 			// we got a problem over here
 			if (LOG.isDebugEnabled())
-				LOG.debug("Houston, we got a problem. Db-Type "+this.workConf.getDBDriver()+" did not match any implemented db-types.");
+				LOG.debug("Houston, we got a problem. Db-Type " + this.workConf.getDBDriver()
+						+ " did not match any implemented db-types.");
 		}
 
 		return threads;
@@ -375,51 +385,64 @@ public class CDALoader extends Loader<CDABenchmark> {
 
 	public int loadDocumentsMongoDB(MongoDatabase database) {
 		String collectionName = "cda";
-		MongoCollection<Document> collection = null; 
-		
-		// drop collection if exists
-		if(collectionExists(database, collectionName)) {
-			collection = database.getCollection(collectionName);
-			collection.drop();	
-		} 
-		
-		database.createCollection(collectionName);
-		collection = database.getCollection(collectionName);
-		
+		/*
+		 * MongoCollection<Document> collection = null;
+		 * 
+		 * // drop collection if exists if(collectionExists(database, collectionName)) {
+		 * collection = database.getCollection(collectionName); collection.drop(); }
+		 * 
+		 * database.createCollection(collectionName); collection =
+		 * database.getCollection(collectionName);
+		 */
+
+		GridFSBucket bucket = GridFSBuckets.create(database, collectionName);
+
 		List<File> files = this.collectFiles(Paths.get(workConf.getDataDir()));
-		
+
 		if (files != null) {
 			for (File file : files) {
-				// parse doc to string
-				String jsonContent = this.getFileContentAsString(file.toPath());
+				/*
+				 * // parse doc to string String jsonContent =
+				 * this.getFileContentAsString(file.toPath());
+				 * 
+				 * if (jsonContent != null) { try { Document doc = Document.parse(jsonContent);
+				 * 
+				 * collection.insertOne(doc);
+				 * 
+				 * } catch (Exception e) {
+				 * LOG.error("Failed to load data to MongoDB for CDABench " + e.getMessage());
+				 * if (LOG.isDebugEnabled()) LOG.debug(e.getStackTrace().toString()); }
+				 * 
+				 * }
+				 */
+				try {
+					InputStream streamToUploadFrom = new FileInputStream(file);
 
-				if (jsonContent != null) {
-					try {
-						Document doc = Document.parse(jsonContent);
+					// Create some custom options
+					GridFSUploadOptions options = new GridFSUploadOptions().chunkSizeBytes(358400);
 
-						collection.insertOne(doc);
+					ObjectId fileId = bucket.uploadFromStream(file.getName(), streamToUploadFrom, options);
+					
+					LOG.info("Uploaded file: " + fileId); 
 
-					} catch (Exception e) {
-						LOG.error("Failed to load data to MongoDB for CDABench " + e.getMessage());
-						if (LOG.isDebugEnabled())
-							LOG.debug(e.getStackTrace().toString());
-					}
-
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
 				}
+
 			}
 			return 0;
 		}
 		return 1;
 	}
-	
+
 	public static boolean collectionExists(MongoDatabase database, final String collectionName) {
-	    MongoIterable<String> collectionNames = database.listCollectionNames();
-	    for (final String name : collectionNames) {
-	        if (name.equalsIgnoreCase(collectionName)) {
-	            return true;
-	        }
-	    }
-	    return false;
+		MongoIterable<String> collectionNames = database.listCollectionNames();
+		for (final String name : collectionNames) {
+			if (name.equalsIgnoreCase(collectionName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public int loadDocumentsPostgres(Connection connection) {
@@ -435,14 +458,14 @@ public class CDALoader extends Loader<CDABenchmark> {
 
 				if (jsonContent != null) {
 					try {
-						
+
 						// prepare statement
 						PreparedStatement insPrepStmt = getInsertStatement(connection, CDAConstants.TABLENAME_CDA);
 
-						PGobject jsonObject = new PGobject(); 
+						PGobject jsonObject = new PGobject();
 						jsonObject.setType("json");
 						jsonObject.setValue(jsonContent);
-						
+
 						insPrepStmt.setObject(1, UUID.randomUUID());
 						insPrepStmt.setObject(2, jsonObject);
 
@@ -450,7 +473,8 @@ public class CDALoader extends Loader<CDABenchmark> {
 
 						transCommit(connection);
 					} catch (SQLException e) {
-						LOG.error("Failed to load data from file " + file.getPath() + " Postgres for CDABench " + e.getMessage());
+						LOG.error("Failed to load data from file " + file.getPath() + " Postgres for CDABench "
+								+ e.getMessage());
 						if (LOG.isDebugEnabled())
 							LOG.debug(e.getStackTrace().toString());
 						fail = true;
