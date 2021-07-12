@@ -27,7 +27,7 @@
 	
    	<transactiontypes>
     	<transactiontype>
-    		<name>DiagnosisWomenAgeRange</name>
+    		<name>DiagnosisAgeRange</name>
     	</transactiontype>
     	<transactiontype>
     		<name>Disease</name>
