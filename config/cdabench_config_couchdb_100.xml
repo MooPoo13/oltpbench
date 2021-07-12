@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<parameters>
+	
+    <!-- Connection details -->
+    <dbtype>couchdb</dbtype>
+    <driver>couch-driver</driver>
+    <DBUrl>http://localhost:5984/cdabench</DBUrl>
+    <username>cdabench</username>
+    <password>cdabench</password>
+    <isolation>TRANSACTION_READ_COMMITTED</isolation>
+    
+    <datadir>/home/julia/data/json/100/</datadir> 
+    
+    <!-- Scale factor is the number of warehouses in TPCC -->
+    <scalefactor>2</scalefactor>
+    
+    <!-- The workload -->
+    <terminals>2</terminals>
+    <works>
+        <work>
+          <time>10</time>
+          <rate>10000</rate>
+          <ratelimited bench="cdabench">true</ratelimited>
+          <weights>33,34,33</weights>
+        </work>
+	</works>
+	
+   	<transactiontypes>
+    	<transactiontype>
+    		<name>DiagnosisWomenAgeRange</name>
+    	</transactiontype>
+    	<transactiontype>
+    		<name>Disease</name>
+    	</transactiontype>
+    	<transactiontype>
+    		<name>ProcedureTimeRange</name>
+    	</transactiontype>
+   	</transactiontypes>	
+</parameters>

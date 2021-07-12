@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<parameters>
+
+	<!-- Connection details -->
+	<dbtype>postgres</dbtype>
+	<driver>org.postgresql.Driver</driver>
+	<DBUrl>jdbc:postgresql://localhost:5432/cdabench</DBUrl>
+	<username>cdabench</username>
+	<password>cdabench</password>
+	<isolation>TRANSACTION_READ_COMMITTED</isolation>
+
+	<datadir>/home/julia/data/json/10k/</datadir>
+
+	<uploadCode></uploadCode>
+	<uploadUrl></uploadUrl>
+
+	<scalefactor>1</scalefactor>
+
+	<!-- The workload -->
+	<terminals>1</terminals>
+	<works>
+		<work>
+			<time>60</time>
+			<warmup>10</warmup>
+			<rate>unlimited</rate>
+			<weights>33,34,33</weights>
+		</work>
+	</works>
+
+	<transactiontypes>
+		<transactiontype>
+			<name>DiagnosisWomenAgeRange</name>
+		</transactiontype>
+		<transactiontype>
+			<name>Disease</name>
+		</transactiontype>
+		<transactiontype>
+			<name>ProcedureTimeRange</name>
+		</transactiontype>
+	</transactiontypes>
+</parameters>

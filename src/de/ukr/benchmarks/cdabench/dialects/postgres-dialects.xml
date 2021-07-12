@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<dialects>
+    <dialect type="POSTGRES">
+        <procedure name="InsertDocument">
+            <statement name="insStmt">
+                INSERT INTO cda(id, cda) VALUES (?, ?);
+            </statement>
+        </procedure>
+        <procedure name="CreateDatabase">
+            <statement name="createStmt">
+                CREATE TABLE cda(
+        			id uuid NOT NULL PRIMARY KEY,
+        			cda JSON);
+            </statement>
+        </procedure>
+        
+    </dialect>
+</dialects>

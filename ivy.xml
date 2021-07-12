@@ -54,5 +54,13 @@
 		<dependency org="javax.xml.bind" name="jaxb-api" rev="2.3.0" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
 		<dependency org="com.sun.xml.bind" name="jaxb-core" rev="2.3.0" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
 		<dependency org="com.sun.xml.bind" name="jaxb-impl" rev="2.3.0" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+		
+	  <!-- CDABench Stuff -->
+        <dependency org="org.mongodb" name="mongo-java-driver" rev="3.12.8" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+     	<dependency org="org.exist-db" name="exist-core" rev="5.0.0" force="true" transitive="false" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+	    <dependency org="net.sf.xmldb-org" name="xmldb-api" rev="1.7.0" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+	    <dependency org="com.fasterxml.jackson.core" name="jackson-databind" rev="2.12.3" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+		<dependency org="org.json" name="json" rev="20210307" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+		
 	</dependencies>
 </ivy-module>
