@@ -27,7 +27,7 @@ import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.catalog.Catalog;
 
-import de.ukr.benchmarks.cdabench.procedures.DiagnosisWomenAgeRange;
+import de.ukr.benchmarks.cdabench.procedures.DiagnosisAgeRange;
 
 public class CDABenchmark extends BenchmarkModule {
 	private static final Logger LOG = Logger.getLogger(CDABenchmark.class);
@@ -52,7 +52,7 @@ public class CDABenchmark extends BenchmarkModule {
 
 	@Override
 	protected Package getProcedurePackageImpl() {
-		return (DiagnosisWomenAgeRange.class.getPackage());
+		return (DiagnosisAgeRange.class.getPackage());
 	}
 
 	// --------------------------------------------------------------------------

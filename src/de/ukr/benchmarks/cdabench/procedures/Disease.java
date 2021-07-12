@@ -1,8 +1,5 @@
 package de.ukr.benchmarks.cdabench.procedures;
 
-import static com.mongodb.client.model.Filters.and;
-import static com.mongodb.client.model.Filters.eq;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -16,10 +13,10 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.log4j.Logger;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xmldb.api.base.Collection;
@@ -66,7 +63,10 @@ public class Disease extends CDAProcedure {
 		boolean trace = LOG.isDebugEnabled();
 		String dbType = worker.getBenchmarkModule().getWorkloadConfiguration().getDBDriver();
 
-		String administrativeGenderCode = "F"; // 1
+		String[] gender = {"M", "F"};
+		int seed = new Random().nextInt(gender.length);
+		
+		String administrativeGenderCode = gender[seed]; // 1
 		String templateId = "2.16.840.1.113883.10.20.22.2.5.1"; // 2
 		String sectionCode = "11450-4"; // 3
 		String sectionCodeSystem = "2.16.840.1.113883.6.1"; // 4

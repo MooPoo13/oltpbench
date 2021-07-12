@@ -1,16 +1,9 @@
 package de.ukr.benchmarks.cdabench.procedures;
 
-import static com.mongodb.client.model.Filters.and;
-import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.Filters.lt;
-import static com.mongodb.client.model.Filters.gt;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpClient.Redirect;
-import java.net.http.HttpClient.Version;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.sql.Connection;
@@ -21,15 +14,12 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.log4j.Logger;
-import org.bson.BsonDateTime;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xmldb.api.base.Collection;
@@ -46,7 +36,7 @@ import de.ukr.benchmarks.cdabench.CDAConstants;
 import de.ukr.benchmarks.cdabench.CDAUtil;
 import de.ukr.benchmarks.cdabench.CDAWorker;
 
-public class DiagnosisWomenAgeRange extends CDAProcedure {
+public class DiagnosisAgeRange extends CDAProcedure {
 
 	private static final Logger LOG = Logger.getLogger(Delivery.class);
 
@@ -58,28 +48,40 @@ public class DiagnosisWomenAgeRange extends CDAProcedure {
 			+ "AND to_timestamp(cda->'ClinicalDocument'->'recordTarget'->'patientRole'->'patient'->'birthTime'->>'@value','YYYYMMDDHH24MISS') "
 			+ "BETWEEN ?::timestamp AND ?::timestamp;");
 
+	public static Instant between(Instant startInclusive, Instant endExclusive) {
+		long startSeconds = startInclusive.getEpochSecond();
+		long endSeconds = endExclusive.getEpochSecond();
+		long random = ThreadLocalRandom.current().nextLong(startSeconds, endSeconds);
+
+		return Instant.ofEpochSecond(random);
+	}
+
 	@Override
-	public ResultSet run(Connection connection, HttpClient httpClient, MongoDatabase mongoDatabase,
-			Collection existCollection, CDAWorker worker) throws SQLException {
+	public ResultSet run(final Connection connection, final HttpClient httpClient, final MongoDatabase mongoDatabase,
+			final Collection existCollection, final CDAWorker worker) throws SQLException {
 		boolean trace = LOG.isDebugEnabled();
-		String dbType = worker.getBenchmarkModule().getWorkloadConfiguration().getDBDriver();
+		final String dbType = worker.getBenchmarkModule().getWorkloadConfiguration().getDBDriver();
+
+		final String[] gender = { "M", "F" };
+		int seed = new Random().nextInt(gender.length);
 
 		// Gender
-		String administrativeGenderCode = "F";
+		final String administrativeGenderCode = gender[seed];
 
 		// calculate time frame
-		DateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+		final DateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
 
-		Calendar cal = Calendar.getInstance(); // 20 years ago
-		cal.add(Calendar.YEAR, -20);
-		String minAge = format.format(Date.from(Instant.ofEpochMilli(cal.getTimeInMillis())));
+		final Instant hundredYearsAgo = Instant.now().minus(Duration.ofDays(100 * 365));
 
-		// Reset calendar
-		cal = Calendar.getInstance();
+		final Instant now = Instant.now();
 
-		// 50 years ago
-		cal.add(Calendar.YEAR, -50);
-		String maxAge = format.format(Date.from(Instant.ofEpochMilli(cal.getTimeInMillis())));
+		final Instant maxDate = between(hundredYearsAgo, now);
+
+		String maxAge = format.format(Date.from(maxDate));
+
+		final Instant minDate = between(maxDate, now);
+
+		String minAge = format.format(Date.from(minDate));
 
 		switch (dbType) {
 		case CDAConfig.COUCHDB_DRIVER:
@@ -196,30 +198,21 @@ public class DiagnosisWomenAgeRange extends CDAProcedure {
 
 			// prepare statement
 			// Section code
-			String section = "2.16.840.1.113883.10.20.22.2.3.1";
+			final String section = "2.16.840.1.113883.10.20.22.2.3.1";
 			// calculate time frame
-			DateFormat postgresFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			final DateFormat postgresFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-			cal = Calendar.getInstance();
+			maxAge = postgresFormat.format(Date.from(maxDate));
 
-			// 20 years ago
-			cal.add(Calendar.YEAR, -20);
-			minAge = format.format(new Date().from(Instant.ofEpochMilli(cal.getTimeInMillis())));
-
-			// Reset calendar
-			cal = Calendar.getInstance();
-
-			// 50 years ago
-			cal.add(Calendar.YEAR, -50);
-			maxAge = format.format(new Date().from(Instant.ofEpochMilli(cal.getTimeInMillis())));
+			minAge = postgresFormat.format(Date.from(minDate));
 
 			// 1st param -> gender
 			searchDiagnosisWomenAgeRange.setString(1, administrativeGenderCode);
 			// 2nd param -> section
 			searchDiagnosisWomenAgeRange.setString(2, section);
-			// 3rd param -> max (50y) (must be the smaller one!)
+			// 3rd param -> max age (must be the smaller one!)
 			searchDiagnosisWomenAgeRange.setString(3, maxAge);
-			// 4th param -> min (20y)
+			// 4th param -> min age
 			searchDiagnosisWomenAgeRange.setString(4, minAge);
 
 			ResultSet resultSet = null;

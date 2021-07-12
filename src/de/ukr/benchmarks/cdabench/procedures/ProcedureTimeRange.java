@@ -1,8 +1,5 @@
 package de.ukr.benchmarks.cdabench.procedures;
 
-import static com.mongodb.client.model.Filters.and;
-import static com.mongodb.client.model.Filters.eq;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,14 +14,11 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.log4j.Logger;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xmldb.api.base.Collection;
@@ -57,6 +51,14 @@ public class ProcedureTimeRange extends CDAProcedure {
 			+ "AND to_timestamp(entries->'procedure'->'effectiveTime'->>'@value','YYYYMMDDHH24MISS') "
 			+ "BETWEEN ?::timestamp AND ?::timestamp;");
 
+	public static Instant between(Instant startInclusive, Instant endExclusive) {
+		long startSeconds = startInclusive.getEpochSecond();
+		long endSeconds = endExclusive.getEpochSecond();
+		long random = ThreadLocalRandom.current().nextLong(startSeconds, endSeconds);
+
+		return Instant.ofEpochSecond(random);
+	}
+
 	@Override
 	public ResultSet run(Connection connection, HttpClient httpClient, MongoDatabase mongoDatabase,
 			Collection existCollection, CDAWorker worker) throws SQLException {
@@ -80,11 +82,24 @@ public class ProcedureTimeRange extends CDAProcedure {
 		// Procedure code system -> SNOMED
 		String procCodeSystem = "2.16.840.1.113883.6.96";
 
+		// calculate time frame
+		final DateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+
+		final Instant hundredYearsAgo = Instant.now().minus(Duration.ofDays(100 * 365));
+
+		final Instant now = Instant.now();
+
+		final Instant minDateInstant = between(hundredYearsAgo, now);
+
 		// min date
-		String minDate = "20200101000000";
+		// String minDate = "20200101000000";
+		String minDate = format.format(Date.from(minDateInstant));
+
+		final Instant maxDateInstant = between(minDateInstant, now);
 
 		// max date
-		String maxDate = "20210101000000";
+		// String maxDate = "20210101000000";
+		String maxDate = format.format(Date.from(maxDateInstant));
 
 		switch (dbType) {
 		case CDAConfig.COUCHDB_DRIVER:
@@ -211,20 +226,13 @@ public class ProcedureTimeRange extends CDAProcedure {
 			// prepare statement
 
 			// calculate time frame
-			DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			DateFormat postgresFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-			Calendar cal = Calendar.getInstance();
+			// min date
+			minDate = postgresFormat.format(Date.from(minDateInstant));
 
-			// minDate -> 01.01.2020 00:00:00
-			cal.set(2020, 0, 1, 0, 0);
-			minDate = format.format(new Date().from(Instant.ofEpochMilli(cal.getTimeInMillis())));
-
-			// Reset calendar
-			cal.clear();
-
-			// maxDate -> 01.01.2021 00:00:00
-			cal.set(2021, 0, 1, 0, 0);
-			maxDate = format.format(new Date().from(Instant.ofEpochMilli(cal.getTimeInMillis())));
+			// max date
+			maxDate = postgresFormat.format(Date.from(maxDateInstant));
 
 			// 1st param -> templateId
 			countProcedureTimeRange.setString(1, templateId);
