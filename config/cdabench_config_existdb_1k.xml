@@ -11,7 +11,7 @@
 
 	<isolation>TRANSACTION_READ_COMMITTED</isolation>
 
-	<datadir>/home/julia/data/xml/100/</datadir>
+	<datadir>/home/julia/data/xml/1k/</datadir>
 
 	<uploadCode></uploadCode>
 	<uploadUrl></uploadUrl>
