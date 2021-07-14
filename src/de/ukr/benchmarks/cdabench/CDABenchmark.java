@@ -17,6 +17,7 @@ import org.xmldb.api.DatabaseManager;
 import org.xmldb.api.base.Collection;
 import org.xmldb.api.base.Database;
 import org.xmldb.api.base.XMLDBException;
+import org.xmldb.api.modules.CollectionManagementService;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -121,11 +122,50 @@ public class CDABenchmark extends BenchmarkModule {
 		Class<?> cl = Class.forName(this.workConf.getDBDriver());
 		Database database = (Database) cl.getDeclaredConstructor().newInstance();
 		database.setProperty("create-database", "true");
-		// TODO: Funktioniert das mit dem DatabaseManager wirklich so??
 		DatabaseManager.registerDatabase(database);
-		Collection collection = DatabaseManager.getCollection(workConf.getDBConnection() + "/cda",
-				workConf.getDBUsername(), workConf.getDBPassword());
+		Collection collection = getOrCreateCollection(CDAConstants.EXIST_COLLECTION_NAME);
 		return collection;
 	}
 
+	private Collection getOrCreateCollection(String collectionUri) throws XMLDBException {
+		return getOrCreateCollection(collectionUri, 0);
+	}
+
+	private Collection getOrCreateCollection(String collectionUri, int pathSegmentOffset) throws XMLDBException {
+		Collection collection = DatabaseManager.getCollection(
+				this.workConf.getDBConnection() + CDAConstants.EXIST_COLLECTION_NAME, this.workConf.getDBUsername(),
+				this.workConf.getDBPassword());
+		if (collection == null) {
+			String collectionUrl = CDAConstants.EXIST_COLLECTION_NAME;
+			if (collectionUrl.startsWith("/")) {
+				collectionUrl = collectionUrl.substring(1);
+			}
+
+			String pathSegments[] = collectionUrl.split("/");
+			if (pathSegments.length > 0) {
+				StringBuilder path = new StringBuilder();
+				for (int i = 0; i <= pathSegmentOffset; i++) {
+					path.append("/" + pathSegments[i]);
+				}
+
+				System.out.println("Collection name (2): " + this.workConf.getDBConnection() + path);
+				Collection start = DatabaseManager.getCollection(this.workConf.getDBConnection() + path);
+				if (start == null) {
+					// collection does not exist, so create
+					String parentPath = path.substring(0, path.lastIndexOf("/"));
+					Collection parent = DatabaseManager.getCollection(this.workConf.getDBConnection() + parentPath);
+					CollectionManagementService service = (CollectionManagementService) parent
+							.getService("CollectionManagementService", "1.0");
+					collection = service.createCollection(pathSegments[pathSegmentOffset]);
+					collection.close();
+					parent.close();
+				} else {
+					start.close();
+				}
+			}
+			return getOrCreateCollection(collectionUri, ++pathSegmentOffset);
+		} else {
+			return collection;
+		}
+	}
 }

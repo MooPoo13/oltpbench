@@ -16,15 +16,20 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.log4j.Logger;
-import org.bson.Document;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xmldb.api.base.Collection;
+import org.xmldb.api.base.Resource;
+import org.xmldb.api.base.ResourceIterator;
+import org.xmldb.api.base.ResourceSet;
+import org.xmldb.api.modules.XPathQueryService;
 
 import com.mongodb.BasicDBObject;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.gridfs.GridFSBucket;
+import com.mongodb.client.gridfs.GridFSBuckets;
+import com.mongodb.client.gridfs.GridFSFindIterable;
+import com.mongodb.client.gridfs.model.GridFSFile;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery;
 
@@ -39,7 +44,8 @@ public class Disease extends CDAProcedure {
 
 	public SQLStmt searchPatientsWithDiseaseSQL = new SQLStmt("select " + CDAConstants.TABLENAME_CDA + " from ("
 			+ "select * " + "from " + CDAConstants.TABLENAME_CDA + " c "
-			+ "where c.cda->'ClinicalDocument'->'recordTarget'->'patientRole'->'patient'->'administrativeGenderCode'->>'@code' = ? ) doc, "
+			+ "where c.cda->'ClinicalDocument'->'recordTarget'->'patientRole'->'patient'->'administrativeGenderCode'->>'@code' = ? "
+			+ "and  c.cda->'ClinicalDocument'->'recordTarget'->'patientRole'->'patient'->'administrativeGenderCode'->>'@codeSystem' = ?) doc, "
 			+ "json_array_elements(doc.cda->'ClinicalDocument'->'component'->'structuredBody'->'component') component, "
 			+ "json_array_elements(component->'section'->'entry') entries "
 			+ "WHERE component->'section'->'templateId'->>'@root' = ? "
@@ -63,27 +69,28 @@ public class Disease extends CDAProcedure {
 		boolean trace = LOG.isDebugEnabled();
 		String dbType = worker.getBenchmarkModule().getWorkloadConfiguration().getDBDriver();
 
-		String[] gender = {"M", "F"};
+		String[] gender = { "M", "F" };
 		int seed = new Random().nextInt(gender.length);
 		
 		String administrativeGenderCode = gender[seed]; // 1
-		String templateId = "2.16.840.1.113883.10.20.22.2.5.1"; // 2
-		String sectionCode = "11450-4"; // 3
-		String sectionCodeSystem = "2.16.840.1.113883.6.1"; // 4
-		String entryTypeCode = "DRIV"; // 5
-		String actClassCode = "ACT"; // 6
-		String actMoodCode = "EVN"; // 7
-		String actTemplateId = "2.16.840.1.113883.10.20.22.4.3"; // 8
-		String entryRelationshipTypeCode = "SUBJ"; // 9
-		String entryRelationshipInversionInd = "false"; // 10
-		String observationClassCode = "OBS"; // 11
-		String observationMoodCode = "EVN"; // 12
-		String observationTemplateId = "2.16.840.1.113883.10.20.22.4.4"; // 13
-		String observationCode = "64572001"; // 14
-		String observationCodeSystem = "2.16.840.1.113883.6.96"; // 15
-		String valueCode = "840539006"; // 16
-		String valueCodeSystem = "2.16.840.1.113883.6.96"; // 17
-
+		String administrativeGenderCodeSystem = "2.16.840.1.113883.5.1"; // 2
+		String templateId = "2.16.840.1.113883.10.20.22.2.5.1"; // 3
+		String sectionCode = "11450-4"; // 4
+		String sectionCodeSystem = "2.16.840.1.113883.6.1"; // 5
+		String entryTypeCode = "DRIV"; // 6
+		String actClassCode = "ACT"; // 7
+		String actMoodCode = "EVN"; // 8
+		String actTemplateId = "2.16.840.1.113883.10.20.22.4.3"; // 9
+		String entryRelationshipTypeCode = "SUBJ"; // 10
+		String entryRelationshipInversionInd = "false"; // 11
+		String observationClassCode = "OBS"; // 12
+		String observationMoodCode = "EVN"; // 13
+		String observationTemplateId = "2.16.840.1.113883.10.20.22.4.4"; // 14
+		String observationCode = "64572001"; // 15
+		String observationCodeSystem = "2.16.840.1.113883.6.96"; // 16
+		String valueCode = "840539006"; // 17
+		String valueCodeSystem = "2.16.840.1.113883.6.96"; // 18
+		
 		switch (dbType) {
 		case CDAConfig.COUCHDB_DRIVER:
 			// execute CouchDB Query
@@ -93,6 +100,8 @@ public class Disease extends CDAProcedure {
 				String query = "{\"selector\":{"
 						+ "\"$and\":[{\"ClinicalDocument.recordTarget.patientRole.patient.administrativeGenderCode.@code\":\""
 						+ administrativeGenderCode + "\"},"
+						+ "{\"ClinicalDocument.recordTarget.patientRole.patient.administrativeGenderCode.@codeSystem\":\""
+								+ administrativeGenderCodeSystem + "\"},"
 						+ "{\"ClinicalDocument.component.structuredBody.component\":" + "{\"$elemMatch\":{"
 						+ "\"section.templateId.@root\":\"" + templateId + "\"," + "\"section.code.@code\":\""
 						+ sectionCode + "\"," + "\"section.code.@codeSystem\":\"" + sectionCodeSystem + "\","
@@ -169,15 +178,71 @@ public class Disease extends CDAProcedure {
 			break;
 		case CDAConfig.EXISTDB_DRIVER:
 			// execute ExistDB Query
+			try {
+				String existQuery = "//administrativeGenderCode[@code='" + administrativeGenderCode + "' " + "and @codeSystem='"
+						+ administrativeGenderCodeSystem + "']/ancestor::node()"
+						+ "/component/structuredBody/component/section" + "/templateId[@root='" + templateId
+						+ "']/parent::node()" + "/code[@code='" + sectionCode + "' and " + "@codeSystem='"
+						+ sectionCodeSystem + "']" + "/parent::node()/entry[@typeCode='" + entryTypeCode + "']"
+						+ "/act[@classCode='" + actClassCode + "' and " + "@moodCode='" + actMoodCode + "']"
+						+ "/templateId[@root='" + actTemplateId + "']" + "/parent::node()/entryRelationship[@typeCode='"
+						+ entryRelationshipTypeCode + "' and " + "@inversionInd='" + entryRelationshipInversionInd + "']"
+						+ "/observation[@classCode='" + observationClassCode + "' and @moodCode='" + observationMoodCode
+						+ "']/templateId[@root='" + observationTemplateId + "']/parent::node()" + "/code[@code='"
+						+ observationCode + "' and " + "@codeSystem='" + observationCodeSystem + "']"
+						+ "/parent::node()/value[@code='" + valueCode + "' and @codeSystem='" + valueCodeSystem
+						+ "']/ancestor::ClinicalDocument";
+
+				XPathQueryService xpqs = (XPathQueryService) existCollection.getService("XPathQueryService", "1.0");
+				xpqs.setProperty("indent", "yes");
+				xpqs.setNamespace(null, "urn:hl7-org:v3");
+
+				ResourceSet result = xpqs.query(existQuery);
+
+				if (trace) {
+					StringBuilder terminalMessage = new StringBuilder();
+					terminalMessage.append("\n+-------- SEARCH DIAGNOSIS OF WOMEN BETWEEN AGE 20 TO 50 ---------+\n");
+					terminalMessage.append(" Date: " + CDAUtil.getCurrentTime());
+					terminalMessage.append("\n\n Disease: " + CDAConfig.diseaseCode);
+					terminalMessage.append("\n\n Patients:\n");
+
+					// print patients from results
+
+					ResourceIterator i = result.getIterator();
+					Resource res = null;
+
+					if (i.hasMoreResources()) {
+						while (i.hasMoreResources()) {
+							res = i.nextResource();
+							terminalMessage.append("\n\n " + res.getId() + "\n");
+						}
+
+					} else {
+						terminalMessage.append("\n\n Error while iterating ResultSet!\n");
+					}
+					terminalMessage.append("+-----------------------------------------------------------------+\n\n");
+					LOG.trace(terminalMessage.toString());
+				}
+
+			} catch (Exception e) {
+				System.out.println("Failed to query data from eXistDB for CDABench: ");
+				e.printStackTrace();
+			}
+
 			break;
 		case CDAConfig.MONGODB_DRIVER:
 			// execute MongoDB Query
 			try {
-				MongoCollection<Document> collection = mongoDatabase.getCollection(CDAConstants.TABLENAME_CDA);
+				//	MongoCollection<Document> collection = mongoDatabase.getCollection(CDAConstants.TABLENAME_CDA);
+				
+				GridFSBucket bucket = GridFSBuckets.create(mongoDatabase, CDAConstants.TABLENAME_CDA);
 				
 				BasicDBObject query = BasicDBObject.parse("{$and: [\n"
 						+ "			{\n"
 						+ "				\"ClinicalDocument.recordTarget.patientRole.patient.administrativeGenderCode.@code\": \""+administrativeGenderCode+"\"\n"
+						+ "			},\n"
+						+ "			{\n"
+						+ "				\"ClinicalDocument.recordTarget.patientRole.patient.administrativeGenderCode.@codeSystem\": \""+administrativeGenderCodeSystem+"\"\n"
 						+ "			},\n"
 						+ "			{\n"
 						+ "				\"ClinicalDocument.component.structuredBody.component\": {\n"
@@ -202,7 +267,9 @@ public class Disease extends CDAProcedure {
 						+ "								\"act.entryRelationship.observation.value.@codeSystem\": \""+valueCodeSystem+"\"\n"
 						+ "}}}}}]}");
 
-				FindIterable<Document> results = collection.find(query);
+				// FindIterable<Document> results = collection.find(query);
+				
+				GridFSFindIterable results = bucket.find(query);
 
 				if (trace) {
 					StringBuilder terminalMessage = new StringBuilder();
@@ -213,8 +280,12 @@ public class Disease extends CDAProcedure {
 
 					// print patients from results
 					if (results != null) {
-						for (Document document : results) {
+						/*for (Document document : results) {
 							terminalMessage.append("\n\n " + document.get("_id").toString() + "\n");
+						}*/
+						
+						for (GridFSFile document : results) {
+							terminalMessage.append("\n\n " + document.getId() + "\n");
 						}
 					} else {
 						terminalMessage.append("\n\n Error while iterating ResultSet!\n");
@@ -235,38 +306,40 @@ public class Disease extends CDAProcedure {
 
 			// 1st param -> administrativeGenderCode
 			searchPatientsWithDisease.setString(1, administrativeGenderCode);
-			// 2nd param -> templateId
-			searchPatientsWithDisease.setString(2, templateId);
-			// 3rd param -> sectionCode
-			searchPatientsWithDisease.setString(3, sectionCode);
-			// 4th param -> sectionCodeSystem
-			searchPatientsWithDisease.setString(4, sectionCodeSystem);
-			// 5th param -> entryTypeCode
-			searchPatientsWithDisease.setString(5, entryTypeCode);
-			// 6th param -> actClassCode
-			searchPatientsWithDisease.setString(6, actClassCode);
-			// 7th param -> actMoodCode
-			searchPatientsWithDisease.setString(7, actMoodCode);
-			// 8th param -> actTemplateId
-			searchPatientsWithDisease.setString(8, actTemplateId);
-			// 9th param -> entryRelationshipTypeCode
-			searchPatientsWithDisease.setString(9, entryRelationshipTypeCode);
-			// 10st param -> entryRelationshipInversionInd
-			searchPatientsWithDisease.setString(10, entryRelationshipInversionInd);
-			// 11th param -> observationClassCode
-			searchPatientsWithDisease.setString(11, observationClassCode);
-			// 12th param -> observationMoodCode
-			searchPatientsWithDisease.setString(12, observationMoodCode);
-			// 13th param -> observationTemplateId
-			searchPatientsWithDisease.setString(13, observationTemplateId);
-			// 14th param -> observationCode
-			searchPatientsWithDisease.setString(14, observationCode);
-			// 15th param -> observationCodeSystem
-			searchPatientsWithDisease.setString(15, observationCodeSystem);
-			// 16th param -> valueCode
-			searchPatientsWithDisease.setString(16, valueCode);
-			// 17th param -> valueCodeSystem
-			searchPatientsWithDisease.setString(17, valueCodeSystem);
+			// 2nd param -> administrativeGenderCodeSystem
+			searchPatientsWithDisease.setString(2, administrativeGenderCodeSystem);
+			// 3rd param -> templateId
+			searchPatientsWithDisease.setString(3, templateId);
+			// 4th param -> sectionCode
+			searchPatientsWithDisease.setString(4, sectionCode);
+			// 5th param -> sectionCodeSystem
+			searchPatientsWithDisease.setString(5, sectionCodeSystem);
+			// 6th param -> entryTypeCode
+			searchPatientsWithDisease.setString(6, entryTypeCode);
+			// 7th param -> actClassCode
+			searchPatientsWithDisease.setString(7, actClassCode);
+			// 8th param -> actMoodCode
+			searchPatientsWithDisease.setString(8, actMoodCode);
+			// 9th param -> actTemplateId
+			searchPatientsWithDisease.setString(9, actTemplateId);
+			// 10th param -> entryRelationshipTypeCode
+			searchPatientsWithDisease.setString(10, entryRelationshipTypeCode);
+			// 11st param -> entryRelationshipInversionInd
+			searchPatientsWithDisease.setString(11, entryRelationshipInversionInd);
+			// 12th param -> observationClassCode
+			searchPatientsWithDisease.setString(12, observationClassCode);
+			// 13th param -> observationMoodCode
+			searchPatientsWithDisease.setString(13, observationMoodCode);
+			// 14th param -> observationTemplateId
+			searchPatientsWithDisease.setString(14, observationTemplateId);
+			// 15th param -> observationCode
+			searchPatientsWithDisease.setString(15, observationCode);
+			// 16th param -> observationCodeSystem
+			searchPatientsWithDisease.setString(16, observationCodeSystem);
+			// 17th param -> valueCode
+			searchPatientsWithDisease.setString(17, valueCode);
+			// 18th param -> valueCodeSystem
+			searchPatientsWithDisease.setString(18, valueCodeSystem);
 
 			ResultSet resultSet = null;
 

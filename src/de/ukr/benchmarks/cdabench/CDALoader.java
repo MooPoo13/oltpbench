@@ -31,6 +31,7 @@ import org.bson.types.ObjectId;
 import org.postgresql.util.PGobject;
 import org.xmldb.api.base.Collection;
 import org.xmldb.api.base.XMLDBException;
+import org.xmldb.api.modules.XMLResource;
 import org.xmldb.api.modules.XQueryService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -364,11 +365,13 @@ public class CDALoader extends Loader<CDABenchmark> {
 				if (xmlContent != null) {
 					// get Collection
 					try {
-						String query = "update insert" + xmlContent;
+						// create new XMLResource; an id will be assigned to the new resource
+						XMLResource resource = (XMLResource) collection.createResource(null, "XMLResource");
 
-						XQueryService service = (XQueryService) collection.getService("XQueryService", "1.0");
-						service.setProperty("indent", "yes");
-						service.query(query);
+						resource.setContent(file);
+						System.out.print("storing document " + resource.getId() + "...");
+						collection.storeResource(resource);
+						System.out.println("ok.");
 
 					} catch (XMLDBException e) {
 						LOG.error("Failed to load data to ExistDB for CDABench" + e.getMessage());

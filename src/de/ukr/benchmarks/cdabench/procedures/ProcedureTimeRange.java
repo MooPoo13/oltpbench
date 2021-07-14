@@ -18,15 +18,20 @@ import java.util.Date;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.log4j.Logger;
-import org.bson.Document;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xmldb.api.base.Collection;
+import org.xmldb.api.base.Resource;
+import org.xmldb.api.base.ResourceIterator;
+import org.xmldb.api.base.ResourceSet;
+import org.xmldb.api.modules.XPathQueryService;
 
 import com.mongodb.BasicDBObject;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.gridfs.GridFSBucket;
+import com.mongodb.client.gridfs.GridFSBuckets;
+import com.mongodb.client.gridfs.GridFSFindIterable;
+import com.mongodb.client.gridfs.model.GridFSFile;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery;
 
@@ -43,7 +48,8 @@ public class ProcedureTimeRange extends CDAProcedure {
 			+ "from (select component->'section' section " + "from cda c, "
 			+ "json_array_elements(c.cda->'ClinicalDocument'->'component'->'structuredBody'->'component') component"
 			+ "where component->'section'->'templateId'->>'@root' = ? "
-			+ "AND component->'section'->'code'->>'@code' = ?) section, "
+			+ "AND component->'section'->'code'->>'@code' = ? "
+			+ "AND component->'section'->'code'->>'@codeSystem' = ?) section, "
 			+ "json_array_elements(section.section->'entry') entries "
 			+ "where entries->'procedure'->>'@classCode'  = ? " + "AND entries->'procedure'->'code'->>'@code'  = ? "
 			+ "AND entries->'procedure'->'code'->>'@codeSystem'  = ? "
@@ -174,12 +180,56 @@ public class ProcedureTimeRange extends CDAProcedure {
 			break;
 		case CDAConfig.EXISTDB_DRIVER:
 			// execute ExistDB Query
+			try {
+				String existQuery = "count(//templateId[@root='" + templateId + "']" + "/parent::node()/code[@code='"
+						+ sectionCode + "' " + "and @codeSystem='" + sectionCodeSystem + "']"
+						+ "/parent::node()/entry/procedure[@classCode='" + procClassCode + "']" + "/code[@code='" + procCode
+						+ "' and @codeSystem='" + procCodeSystem + "']" + "/parent::node()/effectiveTime[@value>='"
+						+ minDate + "' " + "and @value>='" + maxDate + "']/parent::node())";
+
+				XPathQueryService xpqs = (XPathQueryService) existCollection.getService("XPathQueryService", "1.0");
+				xpqs.setProperty("indent", "yes");
+				xpqs.setNamespace(null, "urn:hl7-org:v3");
+
+				ResourceSet result = xpqs.query(existQuery);
+
+				if (trace) {
+					StringBuilder terminalMessage = new StringBuilder();
+					terminalMessage.append("\n+-------- SEARCH DIAGNOSIS OF WOMEN BETWEEN AGE 20 TO 50 ---------+\n");
+					terminalMessage.append(" Date: " + CDAUtil.getCurrentTime());
+					terminalMessage.append("\n\n Disease: " + CDAConfig.diseaseCode);
+					terminalMessage.append("\n\n Patients:\n");
+
+					// print patients from results
+
+					ResourceIterator i = result.getIterator();
+					Resource res = null;
+
+					if (i.hasMoreResources()) {
+						while (i.hasMoreResources()) {
+							res = i.nextResource();
+							terminalMessage.append("\n\n " + res.getId() + "\n");
+						}
+
+					} else {
+						terminalMessage.append("\n\n Error while iterating ResultSet!\n");
+					}
+					terminalMessage.append("+-----------------------------------------------------------------+\n\n");
+					LOG.trace(terminalMessage.toString());
+				}
+
+			} catch (Exception e) {
+				System.out.println("Failed to query data from eXistDB for CDABench: ");
+				e.printStackTrace();
+			}
 			break;
 		case CDAConfig.MONGODB_DRIVER:
 			// execute MongoDB Query
 			try {
-				MongoCollection<Document> collection = mongoDatabase.getCollection(CDAConstants.TABLENAME_CDA);
+				// MongoCollection<Document> collection = mongoDatabase.getCollection(CDAConstants.TABLENAME_CDA);
 
+				GridFSBucket bucket = GridFSBuckets.create(mongoDatabase, CDAConstants.TABLENAME_CDA);
+				
 				BasicDBObject query = BasicDBObject
 						.parse("{\"ClinicalDocument.component.structuredBody.component\": {\n"
 								+ "			$elemMatch: {\n" + "				\"section.templateId.@root\": \""
@@ -193,7 +243,9 @@ public class ProcedureTimeRange extends CDAProcedure {
 								+ "\", $lt: \"" + maxDate + "\"}\n" + "					}\n" + "				}\n"
 								+ "			}}\n" + "}");
 
-				FindIterable<Document> results = collection.find(query);
+				// FindIterable<Document> results = collection.find(query);
+				
+				GridFSFindIterable results = bucket.find(query);
 
 				if (trace) {
 					StringBuilder terminalMessage = new StringBuilder();
@@ -204,8 +256,12 @@ public class ProcedureTimeRange extends CDAProcedure {
 
 					// print patients from results
 					if (results != null) {
-						for (Document document : results) {
+						/*for (Document document : results) {
 							terminalMessage.append("\n\n " + document.get("_id").toString() + "\n");
+						}*/
+						
+						for (GridFSFile document : results) {
+							terminalMessage.append("\n\n " + document.getId() + "\n");
 						}
 					} else {
 						terminalMessage.append("\n\n Error while iterating ResultSet!\n");
@@ -238,16 +294,18 @@ public class ProcedureTimeRange extends CDAProcedure {
 			countProcedureTimeRange.setString(1, templateId);
 			// 2nd param -> sectionCode
 			countProcedureTimeRange.setString(2, sectionCode);
-			// 3rd param -> procClassCode
-			countProcedureTimeRange.setString(3, procClassCode);
-			// 4th param -> procCode
-			countProcedureTimeRange.setString(4, procCode);
-			// 1st param -> procCodeSystem
-			countProcedureTimeRange.setString(5, procCodeSystem);
-			// 3rd param -> minDate
-			countProcedureTimeRange.setString(6, minDate);
-			// 4th param -> maxDate
-			countProcedureTimeRange.setString(7, maxDate);
+			// 3rd param -> sectionCodeSystem
+			countProcedureTimeRange.setString(3, sectionCodeSystem);
+			// 4th param -> procClassCode
+			countProcedureTimeRange.setString(4, procClassCode);
+			// 5th param -> procCode
+			countProcedureTimeRange.setString(5, procCode);
+			// 6th param -> procCodeSystem
+			countProcedureTimeRange.setString(6, procCodeSystem);
+			// 7th param -> minDate
+			countProcedureTimeRange.setString(7, minDate);
+			// 8th param -> maxDate
+			countProcedureTimeRange.setString(8, maxDate);
 
 			ResultSet resultSet = null;
 
