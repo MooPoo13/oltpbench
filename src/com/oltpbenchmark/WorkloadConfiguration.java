@@ -232,7 +232,7 @@ public class WorkloadConfiguration {
 	 * A utility method that init the phaseIterator and dialectMap
 	 */
 	public void init() {
-		if (!this.db_driver.equals("couch-driver") || !this.db_driver.equals("org.exist.xmldb.DatabaseImpl")) {
+		if (!this.db_driver.equals("couch-driver") && !this.db_driver.equals("org.exist.xmldb.DatabaseImpl")) {
 			try {
 				Class.forName(this.db_driver);
 			} catch (ClassNotFoundException ex) {
