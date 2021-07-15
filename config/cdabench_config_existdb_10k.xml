@@ -4,7 +4,7 @@
 	<!-- Connection details -->
 	<dbtype>existdb</dbtype>
 	<driver>org.exist.xmldb.DatabaseImpl</driver>
-	<DBUrl>xmldb:exist//localhost:8080/cdabench</DBUrl>
+	<DBUrl>xmldb:exist://localhost:8080/exist/xmlrpc</DBUrl>
 	<username>cdabench</username>
 	<password>cdabench</password>
 	<DBName>cdabench</DBName>
