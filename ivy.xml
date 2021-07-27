@@ -63,6 +63,7 @@
 		<dependency org="org.exist-db.thirdparty.javax.xml.xquery" name="xqjapi" rev="1.0-fr"/>
 	    <dependency org="com.fasterxml.jackson.core" name="jackson-databind" rev="2.12.3" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
 		<dependency org="org.json" name="json" rev="20210307" force="true" conf="compile->compile(*),master(*);runtime->runtime(*)"/>
+		<dependency org="net.sf.saxon" name="saxon-dom" rev="8.7"/>
 		
 	</dependencies>
 </ivy-module>
