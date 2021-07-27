@@ -92,8 +92,8 @@ public class CDAWorker extends Worker<CDABenchmark> {
 				proc.run(null, null, this.mongoDatabase, null, this);
 				break;
 			case CDAConfig.POSTGRESQL_DRIVER:
-
 				proc.run(conn, null, null, null, this);
+				this.conn.commit();
 				break;
 			}
 
@@ -102,8 +102,6 @@ public class CDAWorker extends Worker<CDABenchmark> {
 			LOG.error("We have been invoked with an INVALID transactionType?!");
 			throw new RuntimeException("Bad transaction type = " + nextTransaction);
 		}
-
-		this.conn.commit();
 
 		return (TransactionStatus.SUCCESS);
 	}
