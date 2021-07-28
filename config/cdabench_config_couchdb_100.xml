@@ -4,7 +4,8 @@
     <!-- Connection details -->
     <dbtype>couchdb</dbtype>
     <driver>couch-driver</driver>
-    <DBUrl>http://localhost:5984/cdabench</DBUrl>
+    <!-- <DBUrl>http://localhost:5984/cdabench</DBUrl> -->
+    <DBUrl>http://localhost:4369/cdabench</DBUrl>
     <username>cdabench</username>
     <password>cdabench</password>
     <isolation>TRANSACTION_READ_COMMITTED</isolation>
