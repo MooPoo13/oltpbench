@@ -82,18 +82,18 @@ public class CDAWorker extends Worker<CDABenchmark> {
 		try {
 			CDAProcedure proc = (CDAProcedure) this.getProcedure(nextTransaction.getProcedureClass());
 			switch (this.getBenchmarkModule().getWorkloadConfiguration().getDBDriver()) {
-			case CDAConfig.COUCHDB_DRIVER:
-				proc.run(null, null, null, null, this);
+			case CDAConfig.POSTGRESQL_DRIVER:
+				proc.run(conn, null, null, null, this);
+				this.conn.commit();
 				break;
-			case CDAConfig.EXISTDB_DRIVER:
-				proc.run(null, null, null, null, this);
+			case CDAConfig.COUCHDB_DRIVER:
+				proc.run(null, this.httpClient, null, null, this);
 				break;
 			case CDAConfig.MONGODB_DRIVER:
 				proc.run(null, null, this.mongoDatabase, null, this);
 				break;
-			case CDAConfig.POSTGRESQL_DRIVER:
-				proc.run(conn, null, null, null, this);
-				this.conn.commit();
+			case CDAConfig.EXISTDB_DRIVER:
+				proc.run(null, null, null, this.existCollection, this);
 				break;
 			}
 

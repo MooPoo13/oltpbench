@@ -52,6 +52,10 @@ public enum DatabaseType {
     CASSANDRA("com.github.adejanovski.cassandra.jdbc.CassandraDriver", true, true, false),
     MEMSQL("com.mysql.jdbc.Driver", true, false, false),
     NOISEPAGE("org.postgresql.Driver", false, false, true),
+    /* cdabench */
+    EXISTDB("org.exist.xmldb.DatabaseImpl", false, false, true),
+    MONGODB("com.mongodb.client.MongoClients", false, false, true),
+    COUCHDB("couch-driver", false, false, true),
     ;
     
     private DatabaseType(String driver,
