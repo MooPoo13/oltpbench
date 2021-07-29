@@ -1,18 +1,20 @@
 <?xml version="1.0"?>
 <parameters>
-
-	<!-- Connection details -->
-	<dbtype>couchdb</dbtype>
-	<driver>couch-driver</driver>
-	<!-- <DBUrl>http://localhost:5984/cdabench</DBUrl> -->
-    <DBUrl>http://localhost:4369/cdabench</DBUrl>
-	<username>cdabench</username>
-	<password>cdabench</password>
-	<isolation>TRANSACTION_READ_COMMITTED</isolation>
-
-	<datadir>/home/julia/data/json/100k/</datadir>
-
-	<uploadCode></uploadCode>
+	
+    <!-- Connection details -->
+    <dbtype>couchdb</dbtype>
+    <driver>couch-driver</driver>
+    <!-- <DBUrl>http://localhost:5984/cdabench</DBUrl> -->
+    <DBUrl>http://cdabench:cdabench@localhost:5984/cdabench</DBUrl>
+    <username>cdabench</username>
+    <password>cdabench</password>
+    <DBName>cdabench</DBName>
+    
+    <isolation>TRANSACTION_READ_COMMITTED</isolation>
+    
+    <datadir>/home/julia/data/json/100k/</datadir> 
+    
+    <uploadCode></uploadCode>
 	<uploadUrl></uploadUrl>
 
 	<scalefactor>1</scalefactor>
