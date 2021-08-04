@@ -51,9 +51,9 @@ public class ProcedureTimeRange extends CDAProcedure {
 			+ "AND component->'section'->'code'->>'@code' = ? "
 			+ "AND component->'section'->'code'->>'@codeSystem' = ?) section, "
 			+ "json_array_elements(section.section->'entry') entries "
-			+ "where entries->'procedure'->>'@classCode'  = ? " + "AND entries->'procedure'->'code'->>'@code'  = ? "
-			+ "AND entries->'procedure'->'code'->>'@codeSystem'  = ? "
-			+ "AND entries->'procedure'->'code'->>'@displayName'  = ? "
+			+ "where entries->'procedure'->>'@classCode' = ? " + "AND entries->'procedure'->'code'->>'@code' = ? "
+			+ "AND entries->'procedure'->'code'->>'@codeSystem' = ? "
+			+ "AND entries->'procedure'->'code'->>'@displayName' = ? "
 			+ "AND to_timestamp(entries->'procedure'->'effectiveTime'->>'@value','YYYYMMDDHH24MISS') "
 			+ "BETWEEN ?::timestamp AND ?::timestamp;");
 

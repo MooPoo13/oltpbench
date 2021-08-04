@@ -4,7 +4,7 @@
 	<!-- Connection details -->
 	<dbtype>postgres</dbtype>
 	<driver>org.postgresql.Driver</driver>
-	<DBUrl>jdbc:postgresql://localhost:5432/</DBUrl>
+	<DBUrl>jdbc:postgresql://localhost:5432/cdabench</DBUrl>
 	<username>cdabench</username>
 	<password>cdabench</password>
 	<isolation>TRANSACTION_READ_COMMITTED</isolation>
